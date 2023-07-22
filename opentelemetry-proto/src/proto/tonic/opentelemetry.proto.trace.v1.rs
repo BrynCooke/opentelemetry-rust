@@ -19,7 +19,7 @@ pub struct TracesData {
     #[prost(message, repeated, tag = "1")]
     pub resource_spans: ::prost::alloc::vec::Vec<ResourceSpans>,
 }
-/// A collection of ScopeSpans from a Resource.
+/// A collection of InstrumentationLibrarySpans from a Resource.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ResourceSpans {
@@ -27,48 +27,63 @@ pub struct ResourceSpans {
     /// If this field is not set then no resource info is known.
     #[prost(message, optional, tag = "1")]
     pub resource: ::core::option::Option<super::super::resource::v1::Resource>,
-    /// A list of ScopeSpans that originate from a resource.
+    /// A list of InstrumentationLibrarySpans that originate from a resource.
     #[prost(message, repeated, tag = "2")]
-    pub scope_spans: ::prost::alloc::vec::Vec<ScopeSpans>,
+    pub instrumentation_library_spans: ::prost::alloc::vec::Vec<
+        InstrumentationLibrarySpans,
+    >,
     /// This schema_url applies to the data in the "resource" field. It does not apply
-    /// to the data in the "scope_spans" field which have their own schema_url field.
+    /// to the data in the "instrumentation_library_spans" field which have their own
+    /// schema_url field.
     #[prost(string, tag = "3")]
     pub schema_url: ::prost::alloc::string::String,
 }
-/// A collection of Spans produced by an InstrumentationScope.
+/// A collection of Spans produced by an InstrumentationLibrary.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ScopeSpans {
-    /// The instrumentation scope information for the spans in this message.
-    /// Semantically when InstrumentationScope isn't set, it is equivalent with
-    /// an empty instrumentation scope name (unknown).
+pub struct InstrumentationLibrarySpans {
+    /// The instrumentation library information for the spans in this message.
+    /// Semantically when InstrumentationLibrary isn't set, it is equivalent with
+    /// an empty instrumentation library name (unknown).
     #[prost(message, optional, tag = "1")]
-    pub scope: ::core::option::Option<super::super::common::v1::InstrumentationScope>,
-    /// A list of Spans that originate from an instrumentation scope.
+    pub instrumentation_library: ::core::option::Option<
+        super::super::common::v1::InstrumentationLibrary,
+    >,
+    /// A list of Spans that originate from an instrumentation library.
     #[prost(message, repeated, tag = "2")]
     pub spans: ::prost::alloc::vec::Vec<Span>,
     /// This schema_url applies to all spans and span events in the "spans" field.
     #[prost(string, tag = "3")]
     pub schema_url: ::prost::alloc::string::String,
 }
-/// A Span represents a single operation performed by a single component of the system.
+/// Span represents a single operation within a trace. Spans can be
+/// nested to form a trace tree. Spans may also be linked to other spans
+/// from the same or different trace and form graphs. Often, a trace
+/// contains a root span that describes the end-to-end latency, and one
+/// or more subspans for its sub-operations. A trace can also contain
+/// multiple root spans, or none at all. Spans do not need to be
+/// contiguous - there may be gaps or overlaps between spans in a trace.
 ///
 /// The next available field id is 17.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Span {
     /// A unique identifier for a trace. All spans from the same trace share
-    /// the same `trace_id`. The ID is a 16-byte array. An ID with all zeroes OR
-    /// of length other than 16 bytes is considered invalid (empty string in OTLP/JSON
-    /// is zero-length and thus is also invalid).
+    /// the same `trace_id`. The ID is a 16-byte array. An ID with all zeroes
+    /// is considered invalid.
+    ///
+    /// This field is semantically required. Receiver should generate new
+    /// random trace_id if empty or invalid trace_id was received.
     ///
     /// This field is required.
     #[prost(bytes = "vec", tag = "1")]
     pub trace_id: ::prost::alloc::vec::Vec<u8>,
     /// A unique identifier for a span within a trace, assigned when the span
-    /// is created. The ID is an 8-byte array. An ID with all zeroes OR of length
-    /// other than 8 bytes is considered invalid (empty string in OTLP/JSON
-    /// is zero-length and thus is also invalid).
+    /// is created. The ID is an 8-byte array. An ID with all zeroes is considered
+    /// invalid.
+    ///
+    /// This field is semantically required. Receiver should generate new
+    /// random span_id if empty or invalid span_id was received.
     ///
     /// This field is required.
     #[prost(bytes = "vec", tag = "2")]
@@ -121,11 +136,11 @@ pub struct Span {
     ///
     ///      "/http/user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36"
     ///      "/http/server_latency": 300
-    ///      "example.com/myattribute": true
-    ///      "example.com/score": 10.239
+    ///      "abc.com/myattribute": true
+    ///      "abc.com/score": 10.239
     ///
     /// The OpenTelemetry API specification further restricts the allowed value types:
-    /// <https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/common/README.md#attribute>
+    /// <https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/common/common.md#attributes>
     /// Attribute keys MUST be unique (it is not allowed to have more than one
     /// attribute with the same key).
     #[prost(message, repeated, tag = "9")]
@@ -306,8 +321,8 @@ pub mod status {
     pub enum StatusCode {
         /// The default status.
         Unset = 0,
-        /// The Span has been validated by an Application developer or Operator to
-        /// have completed successfully.
+        /// The Span has been validated by an Application developers or Operator to have
+        /// completed successfully.
         Ok = 1,
         /// The Span contains an error.
         Error = 2,

@@ -19,7 +19,7 @@ pub struct LogsData {
     #[prost(message, repeated, tag = "1")]
     pub resource_logs: ::prost::alloc::vec::Vec<ResourceLogs>,
 }
-/// A collection of ScopeLogs from a Resource.
+/// A collection of InstrumentationLibraryLogs from a Resource.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ResourceLogs {
@@ -27,23 +27,28 @@ pub struct ResourceLogs {
     /// If this field is not set then resource info is unknown.
     #[prost(message, optional, tag = "1")]
     pub resource: ::core::option::Option<super::super::resource::v1::Resource>,
-    /// A list of ScopeLogs that originate from a resource.
+    /// A list of InstrumentationLibraryLogs that originate from a resource.
     #[prost(message, repeated, tag = "2")]
-    pub scope_logs: ::prost::alloc::vec::Vec<ScopeLogs>,
+    pub instrumentation_library_logs: ::prost::alloc::vec::Vec<
+        InstrumentationLibraryLogs,
+    >,
     /// This schema_url applies to the data in the "resource" field. It does not apply
-    /// to the data in the "scope_logs" field which have their own schema_url field.
+    /// to the data in the "instrumentation_library_logs" field which have their own
+    /// schema_url field.
     #[prost(string, tag = "3")]
     pub schema_url: ::prost::alloc::string::String,
 }
-/// A collection of Logs produced by a Scope.
+/// A collection of Logs produced by an InstrumentationLibrary.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ScopeLogs {
-    /// The instrumentation scope information for the logs in this message.
-    /// Semantically when InstrumentationScope isn't set, it is equivalent with
-    /// an empty instrumentation scope name (unknown).
+pub struct InstrumentationLibraryLogs {
+    /// The instrumentation library information for the logs in this message.
+    /// Semantically when InstrumentationLibrary isn't set, it is equivalent with
+    /// an empty instrumentation library name (unknown).
     #[prost(message, optional, tag = "1")]
-    pub scope: ::core::option::Option<super::super::common::v1::InstrumentationScope>,
+    pub instrumentation_library: ::core::option::Option<
+        super::super::common::v1::InstrumentationLibrary,
+    >,
     /// A list of log records.
     #[prost(message, repeated, tag = "2")]
     pub log_records: ::prost::alloc::vec::Vec<LogRecord>,
@@ -86,6 +91,14 @@ pub struct LogRecord {
     /// it is known at the source. \[Optional\].
     #[prost(string, tag = "3")]
     pub severity_text: ::prost::alloc::string::String,
+    /// Short event identifier that does not contain varying parts. Name describes
+    /// what happened (e.g. "ProcessStarted"). Recommended to be no longer than 50
+    /// characters. Not guaranteed to be unique in any way. \[Optional\].
+    /// This deprecated field is planned to be removed March 15, 2022. Receivers can
+    /// ignore this field.
+    #[deprecated]
+    #[prost(string, tag = "4")]
+    pub name: ::prost::alloc::string::String,
     /// A value containing the body of the log record. Can be for example a human-readable
     /// string message (including multi-line) describing the event in a free form or it can
     /// be a structured data composed of arrays and maps of other values. \[Optional\].
@@ -102,34 +115,19 @@ pub struct LogRecord {
     /// defined in W3C Trace Context specification. 24 most significant bits are reserved
     /// and must be set to 0. Readers must not assume that 24 most significant bits
     /// will be zero and must correctly mask the bits when reading 8-bit trace flag (use
-    /// flags & LOG_RECORD_FLAGS_TRACE_FLAGS_MASK). \[Optional\].
+    /// flags & TRACE_FLAGS_MASK). \[Optional\].
     #[prost(fixed32, tag = "8")]
     pub flags: u32,
     /// A unique identifier for a trace. All logs from the same trace share
-    /// the same `trace_id`. The ID is a 16-byte array. An ID with all zeroes OR
-    /// of length other than 16 bytes is considered invalid (empty string in OTLP/JSON
-    /// is zero-length and thus is also invalid).
-    ///
-    /// This field is optional.
-    ///
-    /// The receivers SHOULD assume that the log record is not associated with a
-    /// trace if any of the following is true:
-    ///    - the field is not present,
-    ///    - the field contains an invalid value.
+    /// the same `trace_id`. The ID is a 16-byte array. An ID with all zeroes
+    /// is considered invalid. Can be set for logs that are part of request processing
+    /// and have an assigned trace id. \[Optional\].
     #[prost(bytes = "vec", tag = "9")]
     pub trace_id: ::prost::alloc::vec::Vec<u8>,
     /// A unique identifier for a span within a trace, assigned when the span
-    /// is created. The ID is an 8-byte array. An ID with all zeroes OR of length
-    /// other than 8 bytes is considered invalid (empty string in OTLP/JSON
-    /// is zero-length and thus is also invalid).
-    ///
-    /// This field is optional. If the sender specifies a valid span_id then it SHOULD also
-    /// specify a valid trace_id.
-    ///
-    /// The receivers SHOULD assume that the log record is not associated with a
-    /// span if any of the following is true:
-    ///    - the field is not present,
-    ///    - the field contains an invalid value.
+    /// is created. The ID is an 8-byte array. An ID with all zeroes is considered
+    /// invalid. Can be set for logs that are part of a particular processing span.
+    /// If span_id is present trace_id SHOULD be also present. \[Optional\].
     #[prost(bytes = "vec", tag = "10")]
     pub span_id: ::prost::alloc::vec::Vec<u8>,
 }
@@ -230,20 +228,12 @@ impl SeverityNumber {
         }
     }
 }
-/// LogRecordFlags is defined as a protobuf 'uint32' type and is to be used as
-/// bit-fields. Each non-zero value defined in this enum is a bit-mask.
-/// To extract the bit-field, for example, use an expression like:
-///
-///    (logRecord.flags & LOG_RECORD_FLAGS_TRACE_FLAGS_MASK)
-///
+/// Masks for LogRecord.flags field.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum LogRecordFlags {
-    /// The zero value for the enum. Should not be used for comparisons.
-    /// Instead use bitwise "and" with the appropriate mask as shown above.
-    DoNotUse = 0,
-    /// Bits 0-7 are used for trace flags.
-    TraceFlagsMask = 255,
+    LogRecordFlagUnspecified = 0,
+    LogRecordFlagTraceFlagsMask = 255,
 }
 impl LogRecordFlags {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -252,15 +242,17 @@ impl LogRecordFlags {
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
-            LogRecordFlags::DoNotUse => "LOG_RECORD_FLAGS_DO_NOT_USE",
-            LogRecordFlags::TraceFlagsMask => "LOG_RECORD_FLAGS_TRACE_FLAGS_MASK",
+            LogRecordFlags::LogRecordFlagUnspecified => "LOG_RECORD_FLAG_UNSPECIFIED",
+            LogRecordFlags::LogRecordFlagTraceFlagsMask => {
+                "LOG_RECORD_FLAG_TRACE_FLAGS_MASK"
+            }
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
-            "LOG_RECORD_FLAGS_DO_NOT_USE" => Some(Self::DoNotUse),
-            "LOG_RECORD_FLAGS_TRACE_FLAGS_MASK" => Some(Self::TraceFlagsMask),
+            "LOG_RECORD_FLAG_UNSPECIFIED" => Some(Self::LogRecordFlagUnspecified),
+            "LOG_RECORD_FLAG_TRACE_FLAGS_MASK" => Some(Self::LogRecordFlagTraceFlagsMask),
             _ => None,
         }
     }

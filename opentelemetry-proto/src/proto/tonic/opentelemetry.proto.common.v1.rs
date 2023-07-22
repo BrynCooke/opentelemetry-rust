@@ -66,21 +66,14 @@ pub struct KeyValue {
     #[prost(message, optional, tag = "2")]
     pub value: ::core::option::Option<AnyValue>,
 }
-/// InstrumentationScope is a message representing the instrumentation scope information
+/// InstrumentationLibrary is a message representing the instrumentation library information
 /// such as the fully qualified name and version.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct InstrumentationScope {
-    /// An empty instrumentation scope name means the name is unknown.
+pub struct InstrumentationLibrary {
+    /// An empty instrumentation library name means the name is unknown.
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
     pub version: ::prost::alloc::string::String,
-    /// Additional attributes that describe the scope. \[Optional\].
-    /// Attribute keys MUST be unique (it is not allowed to have more than one
-    /// attribute with the same key).
-    #[prost(message, repeated, tag = "3")]
-    pub attributes: ::prost::alloc::vec::Vec<KeyValue>,
-    #[prost(uint32, tag = "4")]
-    pub dropped_attributes_count: u32,
 }
